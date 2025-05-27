@@ -75,7 +75,7 @@ def main():
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
         # Display original image
-        st.image(image, caption="Original Image", use_column_width=True)
+        st.image(image, caption="Original Image", use_container_width=True)
         
         # Sidebar controls
         st.sidebar.header("Filter Controls")
@@ -129,7 +129,7 @@ def main():
             processed_image = apply_texture_overlay(processed_image, texture_intensity)
         
         # Display processed image
-        st.image(processed_image, caption="Processed Image", use_column_width=True)
+        st.image(processed_image, caption="Processed Image", use_container_width=True)
         
         # Download button
         buf = io.BytesIO()
