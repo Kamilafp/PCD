@@ -1,0 +1,19 @@
+/* style.css */
+.stApp {
+    background-color: #f5f5f5;
+}
+
+.stSidebar {
+    background-color: #f0e6d2 !important;
+    border-right: 1px solid #d4c9a8;
+}
+
+.stButton>button {
+    background-color: #8b7355 !important;
+    color: white !important;
+    border: none !important;
+}
+
+.stSlider>div>div>div>div {
+    background-color: #8b7355 !important;
+}
