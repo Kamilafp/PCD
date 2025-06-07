@@ -3,8 +3,8 @@ import cv2
 import numpy as np
 from PIL import Image
 import io
+import random
 
-# Css
 def set_vintage_ui():
     st.markdown(
         """
@@ -56,14 +56,35 @@ def set_vintage_ui():
             box-shadow: 5px 5px 15px rgba(0,0,0,0.2);
             border-radius: 2px;
         }
+        .icon-button {
+            font-size: 1.5rem;
+            margin: 0 5px;
+            cursor: pointer;
+        }
+        .effect-control {
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #f0e0d0;
+            border-radius: 5px;
+            border-left: 3px solid #8b5a2b;
+        }
+        .tab-container {
+            background-color: #f0e0d0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
         </style>
         """,
         unsafe_allow_html=True
     )
 
-# Pengolahan Foto
-def apply_grayscale(image):
-    return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+# Image processing functions
+def apply_grayscale(image, intensity=1.0):
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    if len(image.shape) == 3 and len(gray_image.shape) == 2:
+        gray_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGB)
+    return cv2.addWeighted(image, 1 - intensity, gray_image, intensity, 0)
 
 def apply_sepia(image, intensity=0.5):
     sepia_filter = np.array([
@@ -116,6 +137,47 @@ def apply_texture_overlay(image, texture_intensity=0.3):
     overlay = cv2.addWeighted(image, 1 - texture_intensity, texture, texture_intensity, 0)
     return overlay
 
+def apply_all_effects(image, effects):
+    processed_image = image.copy()
+    
+    if effects['use_grayscale'] and effects['grayscale_intensity'] > 0:
+        processed_image = apply_grayscale(processed_image, effects['grayscale_intensity'])
+    
+    if effects['use_sepia'] and effects['sepia_intensity'] > 0:
+        processed_image = apply_sepia(processed_image, effects['sepia_intensity'])
+    
+    if effects['use_noise'] and effects['noise_amount'] > 0:
+        processed_image = apply_noise(processed_image, effects['noise_amount'])
+    
+    if effects['use_vignette'] and effects['vignette_scale'] > 0:
+        processed_image = apply_vignette(processed_image, effects['vignette_scale'])
+    
+    if effects['use_blur'] and effects['blur_amount'] > 0:
+        processed_image = apply_blur(processed_image, effects['blur_amount'])
+    
+    if effects['use_texture'] and effects['texture_intensity'] > 0:
+        processed_image = apply_texture_overlay(processed_image, effects['texture_intensity'])
+    
+    return processed_image
+
+def generate_random_effects():
+    return {
+        'use_grayscale': random.choice([True, False]),
+        'grayscale_intensity': random.uniform(0, 1),
+        'use_sepia': random.choice([True, False]),
+        'sepia_intensity': random.uniform(0, 1),
+        'use_noise': random.choice([True, False]),
+        'noise_amount': random.uniform(0, 0.2),
+        'use_vignette': random.choice([True, False]),
+        'vignette_scale': random.uniform(0.5, 3),
+        'use_blur': random.choice([True, False]),
+        'blur_amount': random.randint(1, 15),
+        'use_texture': random.choice([True, False]),
+        'texture_intensity': random.uniform(0, 1)
+    }
+
+# Image processing functions (keep your existing functions)
+
 def main():
     # Vintage UI
     set_vintage_ui()
@@ -133,73 +195,80 @@ def main():
         unsafe_allow_html=True
     )
     
-    # Konten Utama
+    # Initialize session state
+    if 'effects' not in st.session_state:
+        st.session_state.effects = {
+            'use_grayscale': True,
+            'grayscale_intensity': 0.7,
+            'use_sepia': True,
+            'sepia_intensity': 0.5,
+            'use_noise': True,
+            'noise_amount': 0.05,
+            'use_vignette': True,
+            'vignette_scale': 1.5,
+            'use_blur': False,
+            'blur_amount': 5,
+            'use_texture': False,
+            'texture_intensity': 0.3
+        }
+    
+    if 'original_image' not in st.session_state:
+        st.session_state.original_image = None
+    
+    # Main content
     col1, col2 = st.columns([1, 1], gap="large")
     
     with col1:
-        st.markdown("### Upload Your Photo")
-        uploaded_file = st.file_uploader("", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
+        st.markdown("### 📤 Upload or Capture Photo")
         
-        if uploaded_file is not None:
-            file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-            image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # Tab interface for upload vs camera
+        tab1, tab2 = st.tabs(["📁 Upload Photo", "📷 Take Photo"])
+        
+        with tab1:
+            uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
             
-            st.image(image, caption="Original Image", use_container_width=True)
-    
-    with col2:
-        if uploaded_file is not None:
-            st.markdown("### Vintage Effects")
+            if uploaded_file is not None:
+                try:
+                    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+                    image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+                    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                    st.session_state.original_image = image
+                    st.image(image, caption="Original Image", use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error loading image: {str(e)}")
+        
+        with tab2:
+            st.markdown("Use your camera to take a photo")
+            picture = None
+            try:
+                picture = st.camera_input("Take a picture", label_visibility="collapsed")
+            except Exception as e:
+                st.warning(f"Camera error: {str(e)}")
+                st.info("Please allow camera access or try uploading a file instead")
             
-            # Kontrol FilterS
-            with st.expander("Adjust Vintage Effects", expanded=True):
-                use_grayscale = st.checkbox("Grayscale", value=True)
-                grayscale_intensity = st.slider("Grayscale Intensity", 0.0, 1.0, 0.7, 0.1) if use_grayscale else 0.0
+            if picture is not None:
+                try:
+                    file_bytes = np.asarray(bytearray(picture.read()), dtype=np.uint8)
+                    image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+                    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                    st.session_state.original_image = image
+                    st.image(image, caption="Captured Image", use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error processing captured image: {str(e)}")
+        
+        # Show preview in the same column (below the original/captured image)
+        if st.session_state.original_image is not None:
+            st.markdown("### 🖼️ Result Preview")
+            try:
+                processed_image = apply_all_effects(st.session_state.original_image, st.session_state.effects)
+                st.image(processed_image, caption="Processed Image", use_container_width=True)
                 
-                use_sepia = st.checkbox("Sepia Tone", value=True)
-                sepia_intensity = st.slider("Sepia Intensity", 0.0, 1.0, 0.5, 0.1) if use_sepia else 0.0
                 
-                use_noise = st.checkbox("Film Grain", value=True)
-                noise_amount = st.slider("Grain Amount", 0.0, 0.2, 0.05, 0.01) if use_noise else 0.0
-                
-                use_vignette = st.checkbox("Vignette", value=True)
-                vignette_scale = st.slider("Vignette Strength", 0.5, 3.0, 1.5, 0.1) if use_vignette else 0.0
-                
-                use_blur = st.checkbox("Soft Focus")
-                blur_amount = st.slider("Blur Amount", 1, 15, 5, 2) if use_blur else 0
-                
-                use_texture = st.checkbox("Aging Texture")
-                texture_intensity = st.slider("Texture Intensity", 0.0, 1.0, 0.3, 0.1) if use_texture else 0.0
-            
-            # Proses Foto saat Button di klik
-            if st.button("✨ Apply Vintage Effects", use_container_width=True):
-                processed_image = image.copy()
-                
-                if use_grayscale and grayscale_intensity > 0:
-                    gray_image = apply_grayscale(processed_image)
-                    if len(processed_image.shape) == 3 and len(gray_image.shape) == 2:
-                        gray_image = cv2.cvtColor(gray_image, cv2.COLOR_GRAY2RGB)
-                    processed_image = cv2.addWeighted(processed_image, 1 - grayscale_intensity, gray_image, grayscale_intensity, 0)
-                
-                if use_sepia and sepia_intensity > 0:
-                    processed_image = apply_sepia(processed_image, sepia_intensity)
-                
-                if use_noise and noise_amount > 0:
-                    processed_image = apply_noise(processed_image, noise_amount)
-                
-                if use_vignette and vignette_scale > 0:
-                    processed_image = apply_vignette(processed_image, vignette_scale)
-                
-                if use_blur and blur_amount > 0:
-                    processed_image = apply_blur(processed_image, blur_amount)
-                
-                if use_texture and texture_intensity > 0:
-                    processed_image = apply_texture_overlay(processed_image, texture_intensity)
-                
-                # Display foto hasil
-                st.image(processed_image, caption="Vintage Result", use_container_width=True)
-                
-                # Button download
+                # Random effects button
+                if st.button("🎲 Random Vintage Preset", use_container_width=True):
+                    st.session_state.effects = generate_random_effects()
+                    
+                # Download button moved here
                 buf = io.BytesIO()
                 img_pil = Image.fromarray(processed_image)
                 img_pil.save(buf, format="JPEG")
@@ -212,21 +281,128 @@ def main():
                     mime="image/jpeg",
                     use_container_width=True
                 )
+            except Exception as e:
+                st.error(f"Error applying effects: {str(e)}")
+    
+    with col2:
+        if st.session_state.original_image is not None:
+            st.markdown("### 🎨 Vintage Effects Controls")
+            
+            
+            # Effect controls
+            with st.expander("Adjust Effects", expanded=True):
+                st.markdown('<div class="effect-control">'
+                           '🌑 <span style="margin-left: 10px;">Grayscale</span>'
+                           '</div>', unsafe_allow_html=True)
+                st.session_state.effects['use_grayscale'] = st.checkbox(
+                    "Enable Grayscale", 
+                    value=st.session_state.effects['use_grayscale'],
+                    key="grayscale_check"
+                )
+                if st.session_state.effects['use_grayscale']:
+                    st.session_state.effects['grayscale_intensity'] = st.slider(
+                        "Grayscale Intensity", 
+                        0.0, 1.0, 
+                        value=st.session_state.effects['grayscale_intensity'], 
+                        step=0.1,
+                        key="grayscale_slider"
+                    )
+                
+                st.markdown('<div class="effect-control">'
+                           '🟤 <span style="margin-left: 10px;">Sepia Tone</span>'
+                           '</div>', unsafe_allow_html=True)
+                st.session_state.effects['use_sepia'] = st.checkbox(
+                    "Enable Sepia Tone", 
+                    value=st.session_state.effects['use_sepia'],
+                    key="sepia_check"
+                )
+                if st.session_state.effects['use_sepia']:
+                    st.session_state.effects['sepia_intensity'] = st.slider(
+                        "Sepia Intensity", 
+                        0.0, 1.0, 
+                        value=st.session_state.effects['sepia_intensity'], 
+                        step=0.1,
+                        key="sepia_slider"
+                    )
+                
+                st.markdown('<div class="effect-control">'
+                           '🎞️ <span style="margin-left: 10px;">Film Grain</span>'
+                           '</div>', unsafe_allow_html=True)
+                st.session_state.effects['use_noise'] = st.checkbox(
+                    "Enable Film Grain", 
+                    value=st.session_state.effects['use_noise'],
+                    key="noise_check"
+                )
+                if st.session_state.effects['use_noise']:
+                    st.session_state.effects['noise_amount'] = st.slider(
+                        "Grain Amount", 
+                        0.0, 0.2, 
+                        value=st.session_state.effects['noise_amount'], 
+                        step=0.01,
+                        key="noise_slider"
+                    )
+                
+                st.markdown('<div class="effect-control">'
+                           '⭕ <span style="margin-left: 10px;">Vignette</span>'
+                           '</div>', unsafe_allow_html=True)
+                st.session_state.effects['use_vignette'] = st.checkbox(
+                    "Enable Vignette", 
+                    value=st.session_state.effects['use_vignette'],
+                    key="vignette_check"
+                )
+                if st.session_state.effects['use_vignette']:
+                    st.session_state.effects['vignette_scale'] = st.slider(
+                        "Vignette Strength", 
+                        0.5, 3.0, 
+                        value=st.session_state.effects['vignette_scale'], 
+                        step=0.1,
+                        key="vignette_slider"
+                    )
+                
+                st.markdown('<div class="effect-control">'
+                           '🔍 <span style="margin-left: 10px;">Soft Focus</span>'
+                           '</div>', unsafe_allow_html=True)
+                st.session_state.effects['use_blur'] = st.checkbox(
+                    "Enable Soft Focus", 
+                    value=st.session_state.effects['use_blur'],
+                    key="blur_check"
+                )
+                if st.session_state.effects['use_blur']:
+                    st.session_state.effects['blur_amount'] = st.slider(
+                        "Blur Amount", 
+                        1, 15, 
+                        value=st.session_state.effects['blur_amount'], 
+                        step=2,
+                        key="blur_slider"
+                    )
+                
+                st.markdown('<div class="effect-control">'
+                           '🧱 <span style="margin-left: 10px;">Aging Texture</span>'
+                           '</div>', unsafe_allow_html=True)
+                st.session_state.effects['use_texture'] = st.checkbox(
+                    "Enable Aging Texture", 
+                    value=st.session_state.effects['use_texture'],
+                    key="texture_check"
+                )
+                if st.session_state.effects['use_texture']:
+                    st.session_state.effects['texture_intensity'] = st.slider(
+                        "Texture Intensity", 
+                        0.0, 1.0, 
+                        value=st.session_state.effects['texture_intensity'], 
+                        step=0.1,
+                        key="texture_slider"
+                    )
         else:
             st.markdown(
                 """
                 <div style="background-color: #e8d5c5; padding: 20px; border-radius: 5px; border: 1px solid #8b5a2b;">
                     <h3 style="color: #5c3a21; text-align: center;">How to use:</h3>
                     <ol style="color: #5c3a21; font-family: 'Times New Roman', serif;">
-                        <li>Upload a photo</li>
-                        <li>Adjust vintage effects</li>
-                        <li>Click "Apply Vintage Effects"</li>
+                        <li>Upload a photo or take one with your camera</li>
+                        <li>Adjust vintage effects (or click "Random Preset")</li>
+                        <li>See preview of your changes below the original</li>
                         <li>Download your masterpiece</li>
                     </ol>
-                    <p style="text-align: center; font-style: italic; color: #5c3a21;">
-                        "Photography takes an instant out of time, altering life by holding it still."<br>
-                        - Dorothea Lange
-                    </p>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -237,7 +413,7 @@ def main():
         """
         <div style="text-align: center; margin-top: 50px; padding: 10px; border-top: 1px solid #8b5a2b;">
             <p style="font-family: 'Times New Roman', serif; color: #5c3a21;">
-                © 2025 Vintage Photo Editor | Digital Image Processing | Jenderal Soedirman Univercity
+                © 2025 Vintage Photo Editor | Digital Image Processing | Jenderal Soedirman University
             </p>
         </div>
         """,
