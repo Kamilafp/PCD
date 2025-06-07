@@ -258,7 +258,7 @@ def main():
         
         # Show preview in the same column (below the original/captured image)
         if st.session_state.original_image is not None:
-            st.markdown("### 🖼️ Result Preview")
+            st.markdown("### 🖼️  Preview")
             try:
                 processed_image = apply_all_effects(st.session_state.original_image, st.session_state.effects)
                 st.image(processed_image, caption="Processed Image", use_container_width=True)
@@ -393,6 +393,7 @@ def main():
                         key="texture_slider"
                     )
         else:
+            st.markdown("<br>", unsafe_allow_html=True)
             st.markdown(
                 """
                 <div style="background-color: #e8d5c5; padding: 20px; border-radius: 5px; border: 1px solid #8b5a2b;">
