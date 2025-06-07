@@ -9,6 +9,9 @@ def set_vintage_ui():
     st.markdown(
         """
         <style>
+        body, div, p, span, label, h1, h2, h3, h4, h5, h6, button {
+            color: #5c3a21 !important;
+        }
         .main {
             background-color: #f5e7d9;
         }
