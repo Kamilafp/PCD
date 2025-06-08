@@ -118,6 +118,8 @@ def apply_vignette(image, vignette_scale=1.5):
     return vignette_image.astype(np.uint8)
 
 def apply_blur(image, kernel_size=5):
+    if kernel_size % 2 == 0:
+        kernel_size += 1  # Ubah jadi bilangan ganjil
     return cv2.GaussianBlur(image, (kernel_size, kernel_size), 0)
 
 def apply_texture_overlay(image, texture_intensity=0.3):
@@ -174,7 +176,7 @@ def generate_random_effects():
         'use_vignette': random.choice([True, False]),
         'vignette_scale': random.uniform(0.5, 3),
         'use_blur': random.choice([True, False]),
-        'blur_amount': random.randint(1, 15),
+        'blur_amount': random.choice([i for i in range(1, 16) if i % 2 == 1]),
         'use_texture': random.choice([True, False]),
         'texture_intensity': random.uniform(0, 1)
     }
